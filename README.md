@@ -8,10 +8,6 @@ Measure token usage, prompt-cache hit rate and cost when an agent switches betwe
 (Claude Sonnet and Haiku via OpenRouter) during a session, under several routing policies.
 Measurement only; no router is built.
 
-Motivation: [The hidden cost of LLM routing](https://towardsdatascience.com/the-hidden-cost-of-llm-routing-why-switching-models-costs-more/).
-The article reports roughly 90% prompt-cache reuse within a turn, 55% across turns with the same
-model, and 8% after a model switch (figures are the article's, not measured here).
-
 ## Status
 
 Phase 3 (build) is in progress. **Only the CI/skeleton and the SDK spike exist.** The CLI, runner,
