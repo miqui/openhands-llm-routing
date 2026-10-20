@@ -16,8 +16,10 @@ from pathlib import Path
 from openhands.sdk import LLM, Message, TextContent
 from pydantic import SecretStr
 
-COST_CAP_USD = 0.06
+COST_CAP_USD = float(os.environ.get("SPIKE_COST_CAP", "0.06"))
 MODEL = os.environ.get("SPIKE_MODEL", "anthropic/claude-haiku-4.5")
+# Unset = SDK default reasoning_effort; otherwise passed through explicitly.
+REASONING = os.environ.get("SPIKE_REASONING")
 EXTRA_BODY = {
     "provider": {"order": ["anthropic"], "allow_fallbacks": False},
     "usage": {"include": True},
@@ -39,6 +41,7 @@ def build(caching: bool, log_dir: str, usage_id: str) -> LLM:
         log_completions_folder=log_dir,
         max_output_tokens=20,
         temperature=0.0,
+        **({"reasoning_effort": REASONING} if REASONING else {}),
     )
 
 
@@ -72,6 +75,11 @@ def main() -> None:
         u = d["response"].get("usage") or {}
         det = u.get("prompt_tokens_details") or {}
         n_cc = json.dumps(d.get("messages")).count("cache_control")
+        kw = d.get("kwargs") or {}
+        print(
+            f"log {p.name[-9:]}: req_reasoning_effort={kw.get('reasoning_effort')} "
+            f"reasoning_tokens={(u.get('completion_tokens_details') or {}).get('reasoning_tokens')}"
+        )
         print(
             f"log {p.name[-9:]}: cache_control_markers_in_request={n_cc} "
             f"or_prompt={u.get('prompt_tokens')} or_cached={det.get('cached_tokens')} "

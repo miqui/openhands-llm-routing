@@ -42,3 +42,7 @@ Accepted, 2026-10-20.
 - JSONL only: no visual inspection.
 - Hosted tracing backend: extra key and data egress.
 - Custom span schema replacing SDK spans: reinvents native tracing.
+
+## Correction (2026-10-20)
+
+The T1 spike ([findings, section 5](../notes/spike-findings.md)) observed the SDK's real span names: the tool span is `TerminalAction` (named by action class), not `tool.execute`; other spans are `conversation`, `conversation.send_message`, `conversation.run`, `agent.step`, `litellm.completion` and `llm.<litellm model>`. The SDK emits no policy, phase or `switched` attributes; the harness adds them in T7. The Decision above is unchanged.
