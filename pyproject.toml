@@ -3,7 +3,10 @@ name = "ohrouting"
 version = "0.1.0"
 description = "Experiment harness comparing LLM routing policies for OpenHands"
 requires-python = ">=3.12,<3.13"
-dependencies = []
+dependencies = [
+    "openhands-sdk==1.56.0",
+    "openhands-tools==1.56.0",
+]
 
 [dependency-groups]
 dev = ["ruff"]
