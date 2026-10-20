@@ -40,7 +40,7 @@ Everything below under "How it works" describes the design, not shipped code (se
  tasks/ (fixture repo + declared phases)
     |
     v
- runner --asks--> policies (sticky | alternate | phase | switch-at-N)
+ runner --asks--> policies (sticky | alternate | phase-boundary | switch-at-N)
     |  builds agent + conversation (OpenHands SDK), steps, enforces caps
     |  switch_llm() on live conversation
     v
@@ -83,7 +83,7 @@ total spend $0.139):
 
 ## Run manually
 
-Checks that work today (keyless). Output below was captured from a real run:
+Checks that work at commit `fec8545` (keyless). Output below was captured from a real run:
 
 ```
 $ uv sync
