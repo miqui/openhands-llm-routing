@@ -158,3 +158,57 @@ Four sonnet-4.5 calls were used (two per switch run), more than the "1-2" sugges
 - TBD-3: effect of default `reasoning_effort="high"` on cost/latency for these models is unmeasured.
 - TBD-4: whether the first model's cache is still warm when switching back (within the 5-minute TTL) was not tested; this is the key question for the alternate policy and should be seen in the T6 smoke run (a switch-back test would be ~$0.05).
 - TBD-5: Jaeger itself was not run; only span receipt at a stdlib OTLP/HTTP listener was verified.
+
+## Addendum: Claude 5.5 pair (2026-10-20)
+
+User decision: move from the 4.5 pair to Sonnet 5.5 (frontier) and Haiku 5.5 (cheap); resolves TBD-1 (see [ADR 0009](../decisions/0009-use-claude-5-5-model-pair.md)). Sections 2 to 8 above describe the 4.5 pair and stay as historical evidence.
+
+### IDs and endpoints (observed, `/api/v1/models/<id>/endpoints`, no key)
+
+- `anthropic/claude-sonnet-5.5` (served snapshot `claude-sonnet-5.5-20260928`) and `anthropic/claude-haiku-5.5` (`claude-haiku-5.5-20261007`) both exist exactly as expected. Tokenizer `Claude`, context 1,000,000 tokens, max completion 128,000.
+- Both have an `anthropic` endpoint (tag `anthropic`, provider name `Anthropic`) at base price, plus Google (`google-vertex/global`), Amazon Bedrock, Azure (`azure/global`) and Claude Platform on AWS. Regional tags (`google-vertex/us`, `/europe`, `azure/us`, Bedrock regions) cost 10% more. The `anthropic` pin from ADR 0004 still holds.
+- `anthropic` endpoint `supported_parameters` include `reasoning`, `include_reasoning`, `reasoning_effort`, `verbosity`, `tools`, `tool_choice`, `structured_outputs`; `supports_implicit_caching` is false (explicit `cache_control` needed).
+
+### Price sheet (USD per token, `anthropic` endpoint)
+
+| Model | prompt | completion | input_cache_read | input_cache_write (5m) | input_cache_write_1h |
+|---|---|---|---|---|---|
+| claude-sonnet-5.5 | 0.000002 | 0.00001 | 0.0000001 | 0.0000025 | 0.000004 |
+| claude-haiku-5.5 | 0.0000001 | 0.0000005 | 0.00000001 | 0.000000125 | 0.0000002 |
+
+Cache read is 0.05x prompt for Sonnet 5.5 and 0.1x for Haiku 5.5 (ADR 0003's "0.1x" no longer holds for Sonnet); 5-minute write is 1.25x for both. Haiku 5.5 has a tier override at 100,000 prompt tokens and above (prompt 0.0000005, completion 0.0000025, cache read 0.00000005, cache write 0.000000625, 1h write 0.000001); the Sonnet 5.5 endpoint listed no override. Prompts in the planned tasks stay well under 100k. Sonnet 5.5 is 20x Haiku 5.5 on prompt price (4.5 pair: 3x), so the cost spread between models is much larger.
+
+### Cache check on Haiku 5.5 (observed, `spikes/spike_cache.py` with `SPIKE_MODEL=anthropic/claude-haiku-5.5`)
+
+Direct SDK calls, about 16k-token identical prefix, provider pin and `usage.include` as before. Same result in all three runs below:
+
+```
+== control; caching_prompt=False   call 1/2: cache_read=0 cache_write=0   (0 cache_control markers)
+== sdk_default; caching_prompt=True
+call 1: prompt=16356 cache_read=0     cache_write=16352     (2 cache_control markers)
+call 2: prompt=16356 cache_read=16352 cache_write=0         (served_by=Anthropic)
+```
+
+So SDK defaults apply `cache_control` for the 5.5 model through OpenRouter: prefix written on call 1, read on call 2, no extra option needed. Sonnet 5.5 was not called (cost cap); its caching is inferred from the same SDK code path and the identical endpoint pricing structure, and will be confirmed by the T6 smoke run. The switch-back warmth test (TBD-4) stays in the T6 smoke run, not run here.
+
+### reasoning_effort (observed on Haiku 5.5; SDK source read)
+
+- SDK `LLM.reasoning_effort` defaults to `"high"` (type `Literal["low","medium","high","xhigh","none"] | str | None`). It is sent as `reasoning_effort` in the chat request whenever the SDK's model features say the model supports it; `None` means the parameter is omitted. Observed default run: request `reasoning_effort=high` and `reasoning_tokens=20` out of 20 completion tokens, i.e. reasoning consumed the entire output budget on a trivial call.
+- Explicit values accepted by OpenRouter/Anthropic for Haiku 5.5 and echoed in the request: `none` (reasoning_tokens=0, completion 4 tokens) and `low` (reasoning_tokens=0). Not tested: `medium`, `high` beyond the default, `xhigh`, and any value on Sonnet 5.5 (listed as supporting `reasoning_effort`, not called).
+- Cache behaviour was identical with `none` and `low` (write 16831 / read 16831; write 15392 / read 15392).
+- Choice for T2: fixed explicit default `"none"` (lowest), a config value. Rationale: removes reasoning-token variance from cost and cache measurements. TBD: confirm `none` is accepted on Sonnet 5.5 in the T6 smoke run (T6 must fail loudly if rejected, not silently fall back).
+
+### Measured spend for this addendum
+
+| Run | Cost USD |
+|---|---|
+| spike_cache haiku-5.5, SDK default reasoning | 0.00551 |
+| spike_cache haiku-5.5, `reasoning_effort=none` | 0.00565 |
+| spike_cache haiku-5.5, `reasoning_effort=low` | 0.00517 |
+| **Total (cap $0.10)** | **0.01633** |
+
+Model list and endpoints queries cost nothing. Key supplied by `op run --env-file` (temp file with only the `op://` reference, deleted afterwards); no key printed or written.
+
+### Spike script change
+
+`spikes/spike_cache.py` now accepts `SPIKE_COST_CAP` (default 0.06) and `SPIKE_REASONING` (unset = SDK default) and prints the request `reasoning_effort` and reasoning tokens per call.

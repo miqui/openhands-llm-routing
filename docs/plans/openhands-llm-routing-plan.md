@@ -9,6 +9,7 @@ related:
   - ../decisions/0001-use-openrouter-as-provider.md
   - ../decisions/0002-use-openhands-sdk-harness.md
   - ../decisions/0003-model-pair-sonnet-haiku.md
+  - ../decisions/0009-use-claude-5-5-model-pair.md
   - ../decisions/0004-pin-upstream-provider.md
   - ../decisions/0005-routing-policy-set.md
   - ../decisions/0006-otel-to-jaeger.md
@@ -18,7 +19,7 @@ related:
 
 # OpenHands LLM routing: implementation plan
 
-Inputs (approved, not modified here): [design](../design/openhands-llm-routing-design.md), [ADR 0001](../decisions/0001-use-openrouter-as-provider.md), [0002](../decisions/0002-use-openhands-sdk-harness.md), [0003](../decisions/0003-model-pair-sonnet-haiku.md), [0004](../decisions/0004-pin-upstream-provider.md), [0005](../decisions/0005-routing-policy-set.md), [0006](../decisions/0006-otel-to-jaeger.md), [0007](../decisions/0007-defer-run-count-and-budget-caps.md), [0008](../decisions/0008-synthetic-tasks-with-declared-phases.md).
+Inputs (approved, not modified here): [design](../design/openhands-llm-routing-design.md), [ADR 0001](../decisions/0001-use-openrouter-as-provider.md), [0002](../decisions/0002-use-openhands-sdk-harness.md), [0003](../decisions/0003-model-pair-sonnet-haiku.md) (superseded by [0009](../decisions/0009-use-claude-5-5-model-pair.md)), [0004](../decisions/0004-pin-upstream-provider.md), [0005](../decisions/0005-routing-policy-set.md), [0006](../decisions/0006-otel-to-jaeger.md), [0007](../decisions/0007-defer-run-count-and-budget-caps.md), [0008](../decisions/0008-synthetic-tasks-with-declared-phases.md).
 
 ## 1. Summary and approved direction
 
@@ -81,9 +82,9 @@ Every task ends with **STOP-FOR-CHECKPOINT** (user confirms before the next). Co
 ### T2: Config module
 - Goal: all tunables as config values.
 - Files: `src/ohrouting/config.py`, `config/default.toml`, `tests/test_config.py`.
-- Steps: dataclasses for models (IDs from T1), pinned provider per model, repeats, per-run cap, per-sweep cap (no unmeasured number treated as fact; a live run requires caps to be set), switch points {5,10,15}, OTLP endpoint default `http://localhost:4318` overridable via `OTEL_EXPORTER_OTLP_*`, price sheet stored with results. The key is read from env only, passed to the LLM builder, and never appears in `repr`.
+- Steps: dataclasses for models (IDs per ADR 0009: Sonnet 5.5 frontier, Haiku 5.5 cheap), pinned provider per model, `reasoning_effort` (explicit default `none`), repeats, per-run cap, per-sweep cap (no unmeasured number treated as fact; a live run requires caps to be set), switch points {5,10,15}, OTLP endpoint default `http://localhost:4318` overridable via `OTEL_EXPORTER_OTLP_*`, price sheet stored with results. The key is read from env only, passed to the LLM builder, and never appears in `repr`.
 - Verify: `uv run python -m unittest tests.test_config -v` (env override, missing-key error without value, `repr` redaction); ruff.
-- Deps: T1. ADR refs: ADR 0003, 0004, 0006, 0007.
+- Deps: T1. ADR refs: ADR 0009 (supersedes 0003), 0004, 0006, 0007.
 - STOP-FOR-CHECKPOINT.
 
 ### T3: Policies
@@ -142,10 +143,10 @@ Every task ends with **STOP-FOR-CHECKPOINT** (user confirms before the next). Co
 - Deps: T5. ADR refs: ADR 0005, 0007; design report.
 - STOP-FOR-CHECKPOINT.
 
-### T10: First live smoke run, calibration, ADR 0009
+### T10: First live smoke run, calibration, ADR 0010
 - Goal: first real spend, small and user-approved: one sticky run on Sonnet and one on Haiku on one task.
-- Files: `docs/decisions/0009-calibrated-repeats-and-caps.md`, `docs/notes/smoke-run.md`; no keys.
-- Steps: user confirms a spend ceiling and supplies the key via `op run --env-file=...` (never typed by the agent); temporary conservative caps via config override; run both sticky runs; check Jaeger reachable and trace visible (T7 check); validate a nonzero cache-hit rate on sticky (blocker if zero: revisit cache_control per T1); record real tokens, cost per run, turns reached, variance estimate; calibrate N, per-run cap, per-sweep cap from measured cost with stated headroom; write ADR 0009 superseding the deferral in [ADR 0007](../decisions/0007-defer-run-count-and-budget-caps.md) (new ADR; ADR 0007 is only marked superseded per the repo's ADR process); report the real cost to the user.
+- Files: `docs/decisions/0010-calibrated-repeats-and-caps.md`, `docs/notes/smoke-run.md`; no keys.
+- Steps: user confirms a spend ceiling and supplies the key via `op run --env-file=...` (never typed by the agent); temporary conservative caps via config override; run both sticky runs; check Jaeger reachable and trace visible (T7 check); validate a nonzero cache-hit rate on sticky (blocker if zero: revisit cache_control per T1); record real tokens, cost per run, turns reached, variance estimate; calibrate N, per-run cap, per-sweep cap from measured cost with stated headroom; write ADR 0010 superseding the deferral in [ADR 0007](../decisions/0007-defer-run-count-and-budget-caps.md) (new ADR; ADR 0007 is only marked superseded per the repo's ADR process); report the real cost to the user.
 - Verify: `results/smoke-*.jsonl` has rows with `status=ok`; the report command runs on it; `betterleaks dir .` clean.
 - Deps: T6, T7, T9; user spend approval. ADR refs: ADR 0001, 0004, 0007; design Risks.
 - STOP-FOR-CHECKPOINT.
@@ -155,7 +156,7 @@ Every task ends with **STOP-FOR-CHECKPOINT** (user confirms before the next). Co
 - Files: `results/sweep-<date>.jsonl` (gitignored; summary committed in T12), `docs/notes/sweep-log.md`.
 - Steps: `--dry-run` first to show run count and worst-case cost; user approves; run in batches under `op run`; failed runs recorded and excluded, reported not retried (a re-run is a separate user decision).
 - Verify: row counts per policy and task match the plan; failures listed; total cost versus sweep cap.
-- Deps: T10 and ADR 0009 accepted; explicit user approval. ADR refs: ADR 0004, 0005, 0007.
+- Deps: T10 and ADR 0010 accepted; explicit user approval. ADR refs: ADR 0004, 0005, 0007.
 - STOP-FOR-CHECKPOINT.
 
 ### T12: Results report and README
@@ -183,12 +184,12 @@ Every task ends with **STOP-FOR-CHECKPOINT** (user confirms before the next). Co
 
 | # | Item | Proposed resolution | Resolve in |
 |---|---|---|---|
-| 1 | Current OpenRouter model IDs for Sonnet and Haiku | Query OpenRouter models API; compare with `anthropic/claude-sonnet-4.5` and `anthropic/claude-haiku-4.5`; set in config | T1, T2 |
-| 2 | Pinned upstream provider per model | Choose from the OpenRouter endpoints list the provider that supports caching and usage; record slug in config | T1, T2 |
+| 1 | Current OpenRouter model IDs for Sonnet and Haiku | **Resolved 2026-10-20**: `anthropic/claude-sonnet-5.5` and `anthropic/claude-haiku-5.5` confirmed on OpenRouter (user chose the 5.5 pair, [ADR 0009](../decisions/0009-use-claude-5-5-model-pair.md)); set in config | T1, T2 |
+| 2 | Pinned upstream provider per model | **Resolved**: `anthropic` (tag `anthropic`) exists for both 5.5 models at base price; recorded in config | T1, T2 |
 | 3 | `openhands-sdk` / `openhands-tools` versions | Latest released via `uv pip`/PyPI, exact pins, recorded | T1 |
 | 4 | `cache_control` behaviour via OpenRouter | Two identical-prefix calls; enable explicitly if the SDK does not; hard blocker if cache hits stay zero | T1, T10 |
 | 5 | `switch_llm()` preserves session and cache-relevant prefix | Live spike comparing system prompt and tool schemas before and after; if blocked, new ADR for D2 | T1 |
-| 6 | Repeats, per-run cap, per-sweep cap | Config values; calibrate from smoke cost and record in ADR 0009 (N=3, $2, $40 stay unmeasured guesses until then) | T10 |
+| 6 | Repeats, per-run cap, per-sweep cap | Config values; calibrate from smoke cost and record in ADR 0010 (N=3, $2, $40 stay unmeasured guesses until then) | T10 |
 | 7 | Exact phase triggers per task | Proposed in T4: first edit ends explore, first post-edit test run ends implement, turn-count fallbacks | T4 |
 | 8 | Jaeger availability | Assumed running locally; T7/T10 check `http://localhost:4318` is reachable and the UI shows a trace; absence never fails a run, but verification is blocked until Jaeger is up | T7, T10 |
 | 9 | GitHub Action SHAs | Resolve at T0 and verify against upstream tags | T0 |
@@ -218,3 +219,4 @@ No other TBDs are accepted; new ones are added here with a resolution plan.
 | Date | Change | By |
 |---|---|---|
 | 2026-10-20 | Initial draft | miguel quintero (drafted by agent) |
+| 2026-10-20 | Model pair changed to Claude 5.5 (ADR 0009 supersedes ADR 0003); TBD 1 and 2 resolved; T10 calibration ADR renumbered 0009 to 0010; T2 adds a `reasoning_effort` config value (default `none`); switch-back cache warmth test assigned to the T6 smoke run; ADR 0006 corrected (span names, T7 adds policy/phase/switched) | miguel quintero (applied by agent) |

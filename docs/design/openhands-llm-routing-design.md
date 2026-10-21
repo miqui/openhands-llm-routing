@@ -8,6 +8,7 @@ related:
   - ../decisions/0001-use-openrouter-as-provider.md
   - ../decisions/0002-use-openhands-sdk-harness.md
   - ../decisions/0003-model-pair-sonnet-haiku.md
+  - ../decisions/0009-use-claude-5-5-model-pair.md
   - ../decisions/0004-pin-upstream-provider.md
   - ../decisions/0005-routing-policy-set.md
   - ../decisions/0006-otel-to-jaeger.md
@@ -31,7 +32,7 @@ Routing is a state-management decision, and the harness is where the state lives
 - The OpenHands SDK `switch_llm()` preserves the session on a live conversation. From docs only, not yet run.
 - Prices come from real price sheets; OpenRouter usage accounting gives real billed cost.
 - The Anthropic cache TTL is 5 minutes, so the runner must not idle between steps.
-- The model pair is same-family (see [ADR 0003](../decisions/0003-model-pair-sonnet-haiku.md)).
+- The model pair is same-family (see [ADR 0009](../decisions/0009-use-claude-5-5-model-pair.md), which supersedes [ADR 0003](../decisions/0003-model-pair-sonnet-haiku.md)).
 
 ## Architecture
 
@@ -122,7 +123,7 @@ SWE-bench slice, transcript replay, cross-vendor pairs, error-fallback policy, l
 
 ## Resolved decisions/TBDs
 
-1. Model IDs: `anthropic/claude-sonnet-4.5`, `anthropic/claude-haiku-4.5` (confirm on OpenRouter during planning). [ADR 0003](../decisions/0003-model-pair-sonnet-haiku.md)
+1. Model IDs: `anthropic/claude-sonnet-5.5`, `anthropic/claude-haiku-5.5` (confirmed on OpenRouter 2026-10-20; originally 4.5 per ADR 0003). [ADR 0009](../decisions/0009-use-claude-5-5-model-pair.md)
 2. Tasks: bug fix, feature add, refactor. [ADR 0008](../decisions/0008-synthetic-tasks-with-declared-phases.md)
 3. Repeats, per-run cap, per-sweep cap: deferred to config; calibrate after first smoke run. Unmeasured guesses: N=3, $2/run, $40/sweep, about 54 runs. [ADR 0007](../decisions/0007-defer-run-count-and-budget-caps.md)
 4. Phase boundaries declared in task definitions by turn count or tool/event trigger, not LLM-inferred. ADR 0008.
@@ -142,9 +143,10 @@ SWE-bench slice, transcript replay, cross-vendor pairs, error-fallback policy, l
 
 - [ADR 0001: Use OpenRouter as the only LLM provider](../decisions/0001-use-openrouter-as-provider.md)
 - [ADR 0002: Use the OpenHands SDK as the agent harness](../decisions/0002-use-openhands-sdk-harness.md)
-- [ADR 0003: Use a same-family Sonnet/Haiku pair for the MVP](../decisions/0003-model-pair-sonnet-haiku.md)
+- [ADR 0003: Use a same-family Sonnet/Haiku pair for the MVP](../decisions/0003-model-pair-sonnet-haiku.md) (superseded by 0009)
 - [ADR 0004: Pin the upstream provider per model](../decisions/0004-pin-upstream-provider.md)
 - [ADR 0005: Routing policy set mirrors the article, plus a switch-point sweep](../decisions/0005-routing-policy-set.md)
 - [ADR 0006: Export OTEL traces to the user's local Jaeger](../decisions/0006-otel-to-jaeger.md)
 - [ADR 0007: Defer run count and budget caps until after a smoke run](../decisions/0007-defer-run-count-and-budget-caps.md)
 - [ADR 0008: Synthetic deterministic tasks with declared phases](../decisions/0008-synthetic-tasks-with-declared-phases.md)
+- [ADR 0009: Use the Claude 5.5 Sonnet/Haiku pair for the MVP](../decisions/0009-use-claude-5-5-model-pair.md) (supersedes 0003)

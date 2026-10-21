@@ -1,11 +1,12 @@
 ---
 title: "ADR 0003: Use a same-family Sonnet/Haiku pair for the MVP"
-status: accepted
+status: superseded
 date: 2026-10-20
 owner: miguel quintero
 slug: openhands-llm-routing
 related:
   - ../design/openhands-llm-routing-design.md
+  - 0009-use-claude-5-5-model-pair.md
   - 0001-use-openrouter-as-provider.md
   - 0002-use-openhands-sdk-harness.md
   - 0004-pin-upstream-provider.md
@@ -29,7 +30,7 @@ Use Claude Sonnet (frontier) and Claude Haiku (cheap) via OpenRouter. Proposed I
 
 ## Status
 
-Accepted, 2026-10-20.
+Accepted, 2026-10-20. Superseded by [ADR 0009](0009-use-claude-5-5-model-pair.md) (Claude 5.5 pair), 2026-10-20. The decision text above is kept as history.
 
 ## Consequences
 
